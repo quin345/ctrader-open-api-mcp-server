@@ -52,12 +52,10 @@ def main(transport: str, host: str, port: int, env_file: Optional[Path]):
 
         load_dotenv(env_file, override=False)
 
-    if not os.environ.get("CTRADER_CLIENT_ID") or not os.environ.get(
-        "CTRADER_CLIENT_SECRET"
-    ):
+    if not os.environ.get("CTRADER_ACCESS_TOKEN"):
         click.echo(
-            "Error: CTRADER_CLIENT_ID and CTRADER_CLIENT_SECRET must be set.\n"
-            "Set them in your MCP client config's env block or pass --env-file.",
+            "Error: CTRADER_ACCESS_TOKEN must be set. "
+            "Set it in your MCP client config's env block or pass --env-file.",
             err=True,
         )
         sys.exit(1)

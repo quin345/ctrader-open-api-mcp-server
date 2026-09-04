@@ -17,6 +17,7 @@ from ctrader_mcp_server.security import DATA_KEY, SECURITY_KEY
 from ctrader_mcp_server.server import build_server
 
 DUMMY_ENV = {
+    "CTRADER_ACCESS_TOKEN": "dummy-access-token-for-testing",
     "CTRADER_CLIENT_ID": "test-key",
     "CTRADER_CLIENT_SECRET": "test-secret",
     "CTRADER_ENVIRONMENT": "demo",

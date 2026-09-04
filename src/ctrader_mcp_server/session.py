@@ -84,7 +84,7 @@ class SessionError(Exception):
 class CTraderSession:
     """Manages a cTrader Open API session."""
 
-    def __init__(self, config: ServerConfig, oauth: OAuthManager):
+    def __init__(self, config: ServerConfig, oauth: OAuthManager = None):
         self._config = config
         self._oauth = oauth
         self._state = ConnectionState()
@@ -124,6 +124,22 @@ class CTraderSession:
         )
         self._client.startService()
 
+        # Wait for the connection to be established
+        for _ in range(self._config.request_timeout):
+            if self._state.connected:
+                break
+            await asyncio.sleep(0.1)
+        else:
+            raise SessionError("Failed to connect to cTrader backend.")
+
+        # Auto-authenticate application
+        await self.authenticate_application()
+
+        # Auto-authenticate account if configured
+        account_id = self._config.account_id or self._state.account_id
+        if account_id:
+            await self.authenticate_account(account_id)
+
     async def disconnect(self) -> None:
         """Disconnect from the cTrader backend."""
         if self._client is not None:
@@ -135,21 +151,41 @@ class CTraderSession:
         self._streaming_cache.clear()
 
     async def authenticate_application(self) -> dict:
-        """Send application authentication request."""
+        """Send application authentication request.
+
+        When ``client_id`` and ``client_secret`` are configured (OAuth
+        flow), sends ``ProtoOAApplicationAuthReq``.  Otherwise, skips app
+        auth and just marks the application as authenticated (the access
+        token alone is sufficient for account-level auth).
+        """
         if not self._state.connected:
             raise SessionError("Not connected. Call connect() first.")
 
-        from ctrader_open_api.messages.OpenApiMessages_pb2 import (
-            ProtoOAApplicationAuthReq,
-        )
+        if self._config.client_id and self._config.client_secret:
+            from ctrader_open_api.messages.OpenApiMessages_pb2 import (
+                ProtoOAApplicationAuthReq,
+            )
 
-        request = ProtoOAApplicationAuthReq()
-        request.clientId = self._config.client_id
-        request.clientSecret = self._config.client_secret
+            request = ProtoOAApplicationAuthReq()
+            request.clientId = self._config.client_id
+            request.clientSecret = self._config.client_secret
+            await self._send_request(request)
+        else:
+            logger.debug(
+                "Skipping application auth (no client_id/secret); "
+                "using access token directly."
+            )
 
-        await self._send_request(request)
         self._state.application_authenticated = True
         return {"status": "authenticated"}
+
+    def _get_access_token(self) -> str:
+        """Return the access token from OAuthManager or config."""
+        if self._oauth is not None:
+            token = self._oauth.access_token
+            if token:
+                return token
+        return self._config.access_token
 
     async def discover_accounts(self) -> list[dict]:
         """Discover available trading accounts using the OAuth access token."""
@@ -160,9 +196,9 @@ class CTraderSession:
             ProtoOAGetAccountListByAuthReq,
         )
 
-        access_token = self._oauth.access_token
+        access_token = self._get_access_token()
         if not access_token:
-            raise SessionError("No access token. Authorize via OAuth first.")
+            raise SessionError("No access token available.")
 
         request = ProtoOAGetAccountListByAuthReq()
         request.accessToken = access_token
@@ -185,9 +221,9 @@ class CTraderSession:
             ProtoOAAccountAuthReq,
         )
 
-        access_token = self._oauth.access_token
+        access_token = self._get_access_token()
         if not access_token:
-            raise SessionError("No access token. Authorize via OAuth first.")
+            raise SessionError("No access token available.")
 
         request = ProtoOAAccountAuthReq()
         request.ctidTraderAccountId = int(account_id)

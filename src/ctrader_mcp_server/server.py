@@ -39,12 +39,23 @@ def _parse_toolsets() -> set[str] | None:
 def build_server() -> FastMCP:
     """Construct the cTrader MCP server with all curated tools."""
     config = load_config()
-    oauth = OAuthManager(
-        client_id=config.client_id,
-        client_secret=config.client_secret,
-        redirect_uri=config.redirect_uri,
-        token_path=config.token_path,
-    )
+
+    # Build OAuthManager. If client_id/secret are provided, use the full OAuth
+    # flow (token discovery, refresh). Otherwise, seed the manager with the
+    # access token from config — no OAuth exchange needed.
+    if config.client_id and config.client_secret:
+        oauth = OAuthManager(
+            client_id=config.client_id,
+            client_secret=config.client_secret,
+            redirect_uri=config.redirect_uri,
+            token_path=config.token_path,
+        )
+    else:
+        oauth = OAuthManager.from_access_token(
+            access_token=config.access_token,
+            token_path=config.token_path,
+        )
+
     session = CTraderSession(config=config, oauth=oauth)
 
     active_toolsets = _parse_toolsets()

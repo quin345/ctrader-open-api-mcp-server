@@ -28,10 +28,11 @@ Set these environment variables:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CTRADER_CLIENT_ID` | Yes | Your cTrader application client ID |
-| `CTRADER_CLIENT_SECRET` | Yes | Your cTrader application client secret |
-| `CTRADER_ENVIRONMENT` | No | `demo` (default) or `live` |
+| `CTRADER_ACCESS_TOKEN` | Yes | cTrader OAuth access token |
 | `CTRADER_ACCOUNT_ID` | No | Pre-select an account ID |
+| `CTRADER_ENVIRONMENT` | No | `demo` (default) or `live` |
+| `CTRADER_CLIENT_ID` | No | cTrader application client ID (for OAuth flow) |
+| `CTRADER_CLIENT_SECRET` | No | cTrader application client secret (for OAuth flow) |
 | `CTRADER_REDIRECT_URI` | No | OAuth redirect URI (default: `http://localhost:8080/callback`) |
 | `CTRADER_TOKEN_PATH` | No | Path for token storage |
 | `CTRADER_TOOLSETS` | No | Comma-separated toolset names (default: all) |
@@ -57,13 +58,31 @@ ctrader-mcp-server --transport streamable-http --host 127.0.0.1 --port 8000
 ctrader-mcp-server --env-file .env
 ```
 
-## Authentication Flow
+## Authentication
+
+The MCP server only needs an **access token** and optionally an **account ID**
+to connect to the cTrader trading server. You can obtain an access token
+through the cTrader OAuth flow (using your client ID and secret), or via
+any other method (e.g. the cTrader web dashboard).
+
+If you provide `CTRADER_CLIENT_ID` and `CTRADER_CLIENT_SECRET` as well, the
+server will use the full OAuth authorization-code flow with automatic
+refresh-token rotation. If you only provide `CTRADER_ACCESS_TOKEN`, the
+server will use it directly for account authentication.
+
+### Authentication Flow (OAuth, optional)
+
+When `CTRADER_CLIENT_ID` and `CTRADER_CLIENT_SECRET` are set, the server
+supports the full OAuth authorization-code flow:
 
 1. Call `get_authorization_url` to get the OAuth URL
 2. Open the URL in a browser and authorize the application
 3. cTrader redirects to your local callback with an authorization code
 4. Call `exchange_authorization_code` with the code
 5. Tokens are stored locally and refreshed automatically
+
+When only `CTRADER_ACCESS_TOKEN` is set, this flow is skipped and the token
+is used directly for account authentication.
 
 ## Tool Groups
 

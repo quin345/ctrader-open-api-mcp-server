@@ -55,8 +55,12 @@ class ServerConfig:
     """Immutable server configuration derived from environment.
 
     Attributes:
-        client_id: Permanent cTrader application client ID.
-        client_secret: Permanent cTrader application client secret.
+        access_token: cTrader OAuth access token (required — obtained via OAuth
+            or provided directly when client_id/secret are not used).
+        client_id: Optional cTrader application client ID (needed only for
+            the OAuth authorization-code flow).
+        client_secret: Optional cTrader application client secret (needed only
+            for the OAuth authorization-code flow).
         redirect_uri: Local OAuth redirect URI for the authorization-code flow.
         environment: Demo or live trading environment.
         account_id: The selected cTrader account ID to operate on.
@@ -64,8 +68,9 @@ class ServerConfig:
         request_timeout: Timeout in seconds for API requests.
     """
 
-    client_id: str
-    client_secret: str
+    access_token: str
+    client_id: str = ""
+    client_secret: str = ""
     redirect_uri: str = DEFAULT_REDIRECT_URI
     environment: Environment = Environment.DEMO
     account_id: str = ""
@@ -96,6 +101,15 @@ def load_config(
 ) -> ServerConfig:
     """Load configuration from environment variables.
 
+    The only hard requirement is ``CTRADER_ACCESS_TOKEN`` — a valid cTrader
+    OAuth access token.  When an ``account_id`` is also supplied via
+    ``CTRADER_ACCOUNT_ID`` the server will authenticate as that account
+    immediately on connect.
+
+    ``CTRADER_CLIENT_ID`` / ``CTRADER_CLIENT_SECRET`` are **optional** and
+    only needed if you want to use the built-in OAuth authorization-code flow
+    (e.g. to discover accounts or refresh tokens).
+
     Args:
         env_file: Optional path to a .env file to load before reading.
 
@@ -103,26 +117,23 @@ def load_config(
         ServerConfig with all required fields populated.
 
     Raises:
-        ValueError: If required credentials are missing.
+        ValueError: If the access token is missing.
     """
     if env_file is not None:
         from dotenv import load_dotenv
 
         load_dotenv(env_file, override=False)
 
+    access_token = os.environ.get("CTRADER_ACCESS_TOKEN", "").strip()
+
+    if not access_token:
+        raise ValueError(
+            "CTRADER_ACCESS_TOKEN must be set. "
+            "Set it in your MCP client config's env block or pass --env-file."
+        )
+
     client_id = os.environ.get("CTRADER_CLIENT_ID", "").strip()
     client_secret = os.environ.get("CTRADER_CLIENT_SECRET", "").strip()
-
-    if not client_id:
-        raise ValueError(
-            "CTRADER_CLIENT_ID must be set. "
-            "Set it in your MCP client config's env block or pass --env-file."
-        )
-    if not client_secret:
-        raise ValueError(
-            "CTRADER_CLIENT_SECRET must be set. "
-            "Set it in your MCP client config's env block or pass --env-file."
-        )
 
     redirect_uri = os.environ.get(
         "CTRADER_REDIRECT_URI", DEFAULT_REDIRECT_URI
@@ -139,6 +150,7 @@ def load_config(
     request_timeout = int(timeout_raw) if timeout_raw.isdigit() else DEFAULT_REQUEST_TIMEOUT
 
     return ServerConfig(
+        access_token=access_token,
         client_id=client_id,
         client_secret=client_secret,
         redirect_uri=redirect_uri,

@@ -80,5 +80,5 @@ python_files = ["test_*.py"]
 addopts = ["-v", "--tb=short"]
 asyncio_mode = "auto"
 markers = [
-    "integration: requires live cTrader API credentials (CTRADER_CLIENT_ID, CTRADER_CLIENT_SECRET)",
+    "integration: requires live cTrader API credentials (CTRADER_ACCESS_TOKEN, CTRADER_ACCOUNT_ID)",
 ]

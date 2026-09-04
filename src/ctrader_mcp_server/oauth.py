@@ -13,7 +13,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from .config import AUTH_URI, TOKEN_URI
+from .config import AUTH_URI, TOKEN_URI, DEFAULT_REDIRECT_URI
 
 
 @dataclass
@@ -60,7 +60,11 @@ class OAuthError(Exception):
 
 
 class OAuthManager:
-    """Manages the cTrader OAuth authorization-code flow."""
+    """Manages the cTrader OAuth authorization-code flow.
+
+    Can also be constructed directly from a pre-existing access token via
+    :meth:`from_access_token`, which bypasses the OAuth exchange entirely.
+    """
 
     def __init__(
         self,
@@ -75,6 +79,49 @@ class OAuthManager:
         self._token_path = token_path
         self._token: Optional[TokenData] = None
         self._load_tokens()
+
+    @classmethod
+    def from_access_token(
+        cls,
+        access_token: str,
+        token_path: Path,
+        client_id: str = "",
+        client_secret: str = "",
+        redirect_uri: str = DEFAULT_REDIRECT_URI,
+    ) -> "OAuthManager":
+        """Create an OAuthManager pre-seeded with an access token.
+
+        This bypasses the authorization-code flow entirely.  The token is
+        treated as non-expiring (no refresh possible without client credentials).
+
+        Args:
+            access_token: A valid cTrader OAuth access token.
+            token_path: Path for optional token persistence.
+            client_id: Optional — only needed if you later want to use the
+                OAuth flow for refreshing.
+            client_secret: Optional — same as above.
+            redirect_uri: Optional OAuth redirect URI.
+
+        Returns:
+            An OAuthManager with the token already loaded.
+        """
+        import time
+
+        manager = cls(
+            client_id=client_id,
+            client_secret=client_secret,
+            redirect_uri=redirect_uri,
+            token_path=token_path,
+        )
+        # Seed with a non-expiring token so ``is_authorized`` is True.
+        manager._token = TokenData(
+            access_token=access_token,
+            refresh_token="",
+            expires_at=time.time() + 86400 * 365,  # ~1 year (treated as valid)
+            token_type="Bearer",
+            scope="trading",
+        )
+        return manager
 
     def get_authorization_url(self, scope: str = "trading") -> str:
         """Build the cTrader OAuth authorization URL."""

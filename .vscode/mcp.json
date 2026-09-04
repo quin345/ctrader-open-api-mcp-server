@@ -2,11 +2,16 @@
   "servers": {
     "ctrader": {
       "type": "stdio",
-      "command": "ctrader-mcp-server",
-      "cwd": "${workspaceFolder}",
+      "command": "uv",
+      "args": [
+        "run",
+        "--directory",
+        "${workspaceFolder}",
+        "ctrader-mcp-server"
+      ],
       "env": {
-        "CTRADER_CLIENT_ID": "${env:CTRADER_CLIENT_ID}",
-        "CTRADER_CLIENT_SECRET": "${env:CTRADER_CLIENT_SECRET}",
+        "CTRADER_ACCESS_TOKEN": "${env:CTRADER_ACCESS_TOKEN}",
+        "CTRADER_ACCOUNT_ID": "${env:CTRADER_ACCOUNT_ID}",
         "CTRADER_ENVIRONMENT": "demo"
       }
     }
